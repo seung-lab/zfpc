@@ -16,7 +16,7 @@ correlated_dims = [True, True, False, False]
 binary = zfpc.compress(
 	vector_field, 
 	tolerance=0.01,
-	correlated_dims=[True,True,False,False],
+	correlated_dims=correlated_dims,
 )
 recovered_img = zfpc.decompress(binary)
 ```

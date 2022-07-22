@@ -4,7 +4,6 @@ import pytest
 
 @pytest.fixture
 def vector_img():
-	print("HIII")
 	return np.load("vector_field_sample.npy")
 
 @pytest.mark.parametrize("correlated_dims", [[True,True,True,True], [True,True,False,False]])
@@ -24,7 +23,7 @@ def test_compression_decompression(vector_img, correlated_dims, order):
 	)
 	recovered = zfpc.decompress(compressed)
 
-	assert np.allclose(recovered, compressed, atol=tolerance)
+	assert np.allclose(recovered, vector_img, atol=tolerance)
 
 
 

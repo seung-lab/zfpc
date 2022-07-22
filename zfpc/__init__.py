@@ -1,4 +1,4 @@
-from types import Tuple, List
+from typing import Tuple, List
 import numpy as np
 import pyzfp
 
@@ -11,8 +11,9 @@ DATA_TYPES = {
   np.float32: 3,
   np.float64: 4,
 }
-for k,v in DATA_TYPES.items():
+for k,v in list(DATA_TYPES.items()):
   DATA_TYPES[v] = k
+  DATA_TYPES[np.dtype(k)] = v
 
 CorrelatedDimsType = Tuple[bool,bool,bool,bool]
 
@@ -47,9 +48,9 @@ class ZfpcHeader:
 
   def tobytes(self) -> bytes:
     shape = np.array([self.nx, self.ny, self.nz, self.nw], dtype=np.uint16)
-    data_type = DATA_TYPE[self.data_type] | (int(bool(self.c_order)) << 7)
+    data_type = DATA_TYPES[self.data_type] | (int(bool(self.c_order)) << 7)
     correlated_dims = 0
-    for i, is_correlated in enumerate(correlated_dims):
+    for i, is_correlated in enumerate(self.correlated_dims):
       correlated_dims |= (is_correlated << i)
 
     return (
@@ -61,7 +62,7 @@ class ZfpcHeader:
     )
 
   @classmethod
-  def frombytes(self, binary:bytes) -> ZfpcHeader:
+  def frombytes(self, binary:bytes):
     if len(binary) < ZfpcHeader.header_size:
       raise DecodingError(f"Buffer too small to decode header.")
 
@@ -70,8 +71,8 @@ class ZfpcHeader:
       raise DecodingError(f"Magic number did not match. Got: {magic}")
 
     format_version = int(binary[4])
-    if format_version <= ZfpcHeader.format_version:
-      raise DecodingError(f"Only format versions {ZfpcHeader.format_version} and lower are supported.")
+    if format_version > ZfpcHeader.format_version:
+      raise DecodingError(f"Only format versions {ZfpcHeader.format_version} and lower are supported. Got: {format_version}")
 
     data_type = int(binary[5])
     c_order = bool(data_type >> 7)
@@ -82,37 +83,38 @@ class ZfpcHeader:
 
     return ZfpcHeader(
       nx, ny, nz, nw, 
-      DATA_TYPE[data_type], c_order,
+      DATA_TYPES[data_type], c_order,
       correlated_dims
     )
 
   def num_streams(self):
     shape = [ self.nx, self.ny, self.nz, self.nw ]
-    num_streams = 1;
+    num_streams = 1
     # size 0 is treated as the dimension does not exist. Zeros should
     # only occur on the rhs.
     for i in range(4):
-      if (shape[i] > 1 && ((self.correlated_dims >> i) & 0b1)):
+      if (shape[i] > 1 and (self.correlated_dims[i] == False)):
         num_streams *= shape[i]
     return num_streams
 
 def compute_slices(header):
   shape = [ header.nx, header.ny, header.nz, header.nw ]
-  shape = [ si for si in header if si > 0 else 1 ]
+  ndim = sum([ si > 0 for si in shape ])
+  shape = [ si if si > 0 else 1 for si in shape ]
 
   x_t = lambda x: slice(None) if header.correlated_dims[0] else x
   y_t = lambda y: slice(None) if header.correlated_dims[1] else y
   z_t = lambda z: slice(None) if header.correlated_dims[2] else z
   w_t = lambda w: slice(None) if header.correlated_dims[3] else w
-  slice_template = lambda x,y,z,w: [ x_t(x), y_t(y), z_t(z), w_t(w) ]
+  slice_template = lambda x,y,z,w: ( x_t(x), y_t(y), z_t(z), w_t(w) )
 
-  dim_iter = lambda i: [0] if correlated_dims[i] else range(shape[i])
+  dim_iter = lambda i: [0] if header.correlated_dims[i] else range(shape[i])
 
   for w in dim_iter(3):
     for z in dim_iter(2):
       for y in dim_iter(1):
         for x in dim_iter(0):
-          yield slice_template(x,y,z,w)
+          yield tuple(slice_template(x,y,z,w)[:ndim])
 
 def compress(
   data:np.ndarray, 
@@ -176,7 +178,7 @@ def compress(
         tolerance=tolerance,
         precision=precision,
         rate=rate,
-        order=order,
+        # order=order,
       )
     )
 
@@ -207,7 +209,7 @@ def decompress(binary:bytes) -> np.ndarray:
   Decompresses a zfpc file into a numpy array.
   """
   header = ZfpcHeader.frombytes(binary)
-  streams = disassemble_container(binary)
+  streams = disassemble_container(header, binary)
 
   order = 'C' if header.c_order else 'F'
 
@@ -218,27 +220,30 @@ def decompress(binary:bytes) -> np.ndarray:
   image = np.zeros(shape, dtype=np.float32, order=order)
 
   for slc, stream in zip(compute_slices(header), streams):
-    image[slc] = pyzfp.decompress(stream, order=order)
+    image[slc] = pyzfp.decompress(
+      stream, shape, np.dtype(header.data_type), 
+      tolerance=0.01, order=order
+    )
 
   return image
 
 def disassemble_container(header:ZfpcHeader, binary:bytes) -> List[bytes]:
   index_bytes = (1 + header.num_streams()) * 8
   index = binary[ZfpcHeader.header_size:ZfpcHeader.header_size + index_bytes]
-  index = list(np.frombuffer(index, dtype=np.uint64)) + [ len(binary) ]
+  index = list(np.frombuffer(index, dtype=np.uint64))
 
-  for idx in index:
-    assert idx < len(binary), f"Index {idx} larger than size of buffer ({len(binary)})."
+  for size in index:
+    assert size < len(binary), f"Index {idx} larger than size of buffer ({len(binary)})."
 
   offset = int(index[0])
   sizes = index[1:]
 
   streams = []
-  for size in sizes:
+  for size in map(int, sizes):
     streams.append(
       binary[offset:offset+size]
     )
-    offset += int(size)
+    offset += size
 
   return streams
 

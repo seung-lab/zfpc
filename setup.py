@@ -31,15 +31,15 @@ setuptools.setup(
   setup_requires=['pbr', 'numpy'],
   install_requires=['numpy'],
   python_requires="~=3.7", # >= 3.7 < 4.0
-  ext_modules=[
-    setuptools.Extension(
-      'zfpc',
-      sources=[ 'zfpc.pyx' ],
-      language='c++',
-      include_dirs=[ np.get_include() ],
-      extra_compile_args=extra_compile_args,
-    )
-  ],
+  # ext_modules=[
+  #   setuptools.Extension(
+  #     'zfpc',
+  #     sources=[ 'zfpc.pyx' ],
+  #     language='c++',
+  #     include_dirs=[ np.get_include() ],
+  #     extra_compile_args=extra_compile_args,
+  #   )
+  # ],
   author="William Silversmith",
   author_email="ws9@princeton.edu",
   packages=setuptools.find_packages(),

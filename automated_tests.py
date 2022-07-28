@@ -44,3 +44,60 @@ def test_compression_decompression_fixed_rate(vector_img, correlated_dims, order
 	print(len(compressed) / vector_img.nbytes)
 	print(np.max(np.abs(recovered - vector_img)))
 
+
+def test_failed_arg_combo(vector_img):
+	compressed = zfpc.compress(
+		vector_img, 
+		rate=8, 
+	)
+
+	compressed = zfpc.compress(
+		vector_img, 
+		tolerance=0.01, 
+	)
+
+	compressed = zfpc.compress(
+		vector_img, 
+		precision=5, 
+	)
+
+	try:
+		compressed = zfpc.compress(
+			vector_img, 
+			tolerance=0.01, 
+			rate=8,
+		)
+		assert False
+	except ValueError:
+		pass
+
+	try:
+		compressed = zfpc.compress(
+			vector_img, 
+			tolerance=0.01, 
+			precision=8,
+		)
+		assert False
+	except ValueError:
+		pass
+
+	try:
+		compressed = zfpc.compress(
+			vector_img, 
+			precision=0.01, 
+			rate=8,
+		)
+		assert False
+	except ValueError:
+		pass
+
+	try:
+		compressed = zfpc.compress(
+			vector_img, 
+			tolerance=0.01, 
+			rate=8,
+			precision=5,
+		)
+		assert False
+	except ValueError:
+		pass

@@ -12,34 +12,12 @@ def requirements():
   with open(os.path.join(os.path.dirname(__file__), 'requirements.txt'), 'rt') as f:
     return f.readlines()
 
-extra_compile_args = []
-if sys.platform == 'win32':
-  extra_compile_args += [
-    '/std:c++11', '/O2'
-  ]
-else:
-  extra_compile_args += [
-    '-std=c++11', '-O3'
-  ]
-
-if sys.platform == 'darwin':
-  extra_compile_args += [ '-stdlib=libc++', '-mmacosx-version-min=10.9' ]
-
 setuptools.setup(
   name="zfpc",
-  version="0.0.1",
+  version="0.1.0",
   setup_requires=['pbr', 'numpy'],
   install_requires=['numpy'],
-  python_requires="~=3.7", # >= 3.7 < 4.0
-  # ext_modules=[
-  #   setuptools.Extension(
-  #     'zfpc',
-  #     sources=[ 'zfpc.pyx' ],
-  #     language='c++',
-  #     include_dirs=[ np.get_include() ],
-  #     extra_compile_args=extra_compile_args,
-  #   )
-  # ],
+  python_requires=">=3.7,<4.0", # >= 3.7 < 4.0
   author="William Silversmith",
   author_email="ws9@princeton.edu",
   packages=setuptools.find_packages(),
@@ -48,7 +26,7 @@ setuptools.setup(
       'LICENSE',
     ],
   },
-  description="zfp container for optimal compression of 1D-4D arrays by representing correlated dimensions as separate streams.",
+  description="zfp container (zfpc) for optimal compression of 1D-4D arrays by representing correlated dimensions as separate zfp streams.",
   long_description=read('README.md'),
   long_description_content_type="text/markdown",
   license = "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
@@ -56,7 +34,7 @@ setuptools.setup(
   url = "https://github.com/seung-lab/zfpc/",
   classifiers=[
     "Intended Audience :: Developers",
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",

@@ -33,11 +33,11 @@ The header is 15 bytes long in the following format:
 |-------------------|---------|----------------------------------------------------------------------------------------------------------|
 | magic             | char[4] | "zfpc" magic number for file format.                                                                     |
 | format version    | uint8   | Always version 0 (for now).                                                                              |
-| data type / order | uint8   | Top bit true indicates c order, bottom bits indicate data type. (bits: DDDDDDC)                          |
-| nx                | uint16  | Size of x axis.                                                                                          |
-| ny                | uint16  | Size of y axis.                                                                                          |
-| nz                | uint16  | Size of z axis.                                                                                          |
-| nw                | uint16  | Number of channels.                                                                                      |
+| dtype,mode,order  | uint8   | bits 1-3: zfp data type; bits 4-6: zfp mode; bit 7: unused; bit 8: true indicates c order (bits: DDDMMMUC)                          |
+| nx                | uint32  | Size of x axis.                                                                                          |
+| ny                | uint32  | Size of y axis.                                                                                          |
+| nz                | uint32  | Size of z axis.                                                                                          |
+| nw                | uint32  | Number of channels.                                                                                      |
 | correlated dims   | uint8   | Bottom 4 bits are a bitfield with 1 indicating correlated, 0 uncorrelated. Top 4 bits unused. (xyzw0000) |
 
 ### Index

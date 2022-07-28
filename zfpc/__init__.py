@@ -1,6 +1,8 @@
 from typing import Tuple, List
+import enum
 import numpy as np
-import pyzfp
+
+import zfpy
 
 __all__ = [ "compress", "decompress" ]
 
@@ -17,18 +19,44 @@ for k,v in list(DATA_TYPES.items()):
 
 CorrelatedDimsType = Tuple[bool,bool,bool,bool]
 
+class ZfpModes(enum.IntEnum):
+  NULL = 0
+  EXPERT = 1
+  FIXED_RATE = 2
+  FIXED_PRECISION = 3
+  FIXED_ACCURACY = 4
+  REVERSIBLE = 5
+
+def which_mode(tolerance:float, rate:float, precision:float) -> int:
+  """Corresponds to subset of enum in zfp.h"""
+  if sum([ tolerance >= 0, rate >= 0, precision >= 0 ]) > 1:
+    raise ValueError(
+      "Only one of tolerance, rate, and precision can be specified (i.e. > -1) at once."
+      "tolerance: {tolerance}, rate: {rate}, precision: {precision}"
+    )
+
+  if tolerance > -1:
+    return ZfpModes.FIXED_ACCURACY
+  elif precision > -1:
+    return ZfpModes.FIXED_PRECISION
+  elif rate > -1:
+    return ZfpModes.FIXED_RATE
+  else:
+    return ZfpModes.REVERSIBLE
+
 class DecodingError(Exception):
   pass
 
 class ZfpcHeader:
-  header_size:int = 15
+  header_size:int = 23
   format_version:int = 0
   magic:str = b'zfpc'
 
   def __init__(
     self, 
     nx:int, ny:int, nz:int, nw:int,
-    data_type:np.dtype, c_order:bool, 
+    data_type:np.dtype, 
+    c_order:bool, mode:int,
     correlated_dims:CorrelatedDimsType
   ):
     self.nx = int(nx)
@@ -37,7 +65,12 @@ class ZfpcHeader:
     self.nw = int(nw)
     self.data_type = data_type
     self.c_order = bool(c_order)
+    self.mode = int(mode)
     self.correlated_dims = correlated_dims
+
+  @property
+  def random_access(self) -> bool:
+    return self.mode == ZfpModes.FIXED_RATE
 
   def shape(self):
     shape = [self.nx, self.ny, self.nz, self.nw]
@@ -47,14 +80,17 @@ class ZfpcHeader:
     return shape
 
   def tobytes(self) -> bytes:
-    shape = np.array([self.nx, self.ny, self.nz, self.nw], dtype=np.uint16)
-    data_type = DATA_TYPES[self.data_type] | (int(bool(self.c_order)) << 7)
+    shape = np.array([self.nx, self.ny, self.nz, self.nw], dtype=np.uint32)
+    data_type = (DATA_TYPES[self.data_type] & 0b111)
+    data_type |= ((int(self.mode) & 0b111) << 3)
+    data_type |= (int(bool(self.c_order)) << 7)
+
     correlated_dims = 0
     for i, is_correlated in enumerate(self.correlated_dims):
       correlated_dims |= (is_correlated << i)
 
     return (
-        self.magic 
+        self.magic
       + int.to_bytes(self.format_version, length=1, byteorder="little", signed=False)
       + int.to_bytes(data_type, length=1, byteorder="little", signed=False)
       + shape.tobytes()
@@ -76,14 +112,16 @@ class ZfpcHeader:
 
     data_type = int(binary[5])
     c_order = bool(data_type >> 7)
-    data_type = data_type & 0b0111111
+    mode = (data_type >> 3) & 0b111
+    data_type = data_type & 0b00000111
 
-    nx, ny, nz, nw = list(np.frombuffer(binary[6:14], dtype=np.uint16))
-    correlated_dims = [ bool((binary[14] >> i) & 0b1) for i in range(4) ]
+    nx, ny, nz, nw = list(np.frombuffer(binary[6:22], dtype=np.uint32))
+    correlated_dims = [ bool((binary[22] >> i) & 0b1) for i in range(4) ]
 
     return ZfpcHeader(
       nx, ny, nz, nw, 
-      DATA_TYPES[data_type], c_order,
+      DATA_TYPES[data_type], 
+      c_order, mode,
       correlated_dims
     )
 
@@ -119,9 +157,9 @@ def compute_slices(header):
 def compress(
   data:np.ndarray, 
   correlated_dims:CorrelatedDimsType = [True, True, True, True],
-  tolerance = None,
-  precision = None,
-  rate = None,
+  tolerance:float = -1.0,
+  precision:float = -1.0,
+  rate:float = -1.0,
 ) -> bytes:
   """
   Compress a numpy array into a zfpc stream.
@@ -149,6 +187,20 @@ def compress(
     [True,True,False,False] as each 2D plane is
     smoothly varying but each slice and each channel
     are independent.
+
+  You can only specify one of:
+
+  tolerance: absolute tolerable error from lossy compression
+    (aka fixed accuracy mode)
+  rate: number of bits per field, enables random access
+  precision: number of uncompressed bits for transform 
+    coefficients, affects relative error.
+
+  If none of these coefficients are set, the stream is set
+  to reversible (lossless compression) mode.
+
+  You can read more about these options here:
+  https://zfp.readthedocs.io/en/latest/modes.html#fixed-rate-mode
   """
   if correlated_dims == [False]*4:
     raise ValueError(
@@ -162,7 +214,9 @@ def compress(
 
   header = ZfpcHeader(
     shape[0], shape[1], shape[2], shape[3],
-    data_type=data.dtype, c_order=data.flags.c_contiguous,
+    data_type=data.dtype, 
+    c_order=data.flags.c_contiguous,
+    mode=which_mode(tolerance, rate, precision),
     correlated_dims=correlated_dims,
   )
 
@@ -173,12 +227,12 @@ def compress(
   for slc in compute_slices(header):
     hyperplane = orderfn(data[slc])
     streams.append(
-      pyzfp.compress(
+      zfpy.compress_numpy(
         hyperplane,
-        tolerance=tolerance,
+        tolerance=tolerance ,
         precision=precision,
         rate=rate,
-        # order=order,
+        write_header=True,
       )
     )
 
@@ -220,10 +274,7 @@ def decompress(binary:bytes) -> np.ndarray:
   image = np.zeros(shape, dtype=np.float32, order=order)
 
   for slc, stream in zip(compute_slices(header), streams):
-    image[slc] = pyzfp.decompress(
-      stream, shape, np.dtype(header.data_type), 
-      tolerance=0.01, order=order
-    )
+    image[slc] = zfpy.decompress_numpy(stream)
 
   return image
 
@@ -233,7 +284,7 @@ def disassemble_container(header:ZfpcHeader, binary:bytes) -> List[bytes]:
   index = list(np.frombuffer(index, dtype=np.uint64))
 
   for size in index:
-    assert size < len(binary), f"Index {idx} larger than size of buffer ({len(binary)})."
+    assert size < len(binary), f"Index {size} larger than size of buffer ({len(binary)})."
 
   offset = int(index[0])
   sizes = index[1:]

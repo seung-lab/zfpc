@@ -8,7 +8,7 @@ def vector_img():
 
 @pytest.mark.parametrize("correlated_dims", [[True,True,True,True], [True,True,False,False], [False,True,True,True]])
 @pytest.mark.parametrize("order", ['C', 'F'])
-@pytest.mark.parametrize("tolerance", [ 0.000002, 0.0001, 0.01 ])
+@pytest.mark.parametrize("tolerance", [ -1, 0.000002, 0.0001, 0.01 ])
 def test_compression_decompression_fixed_accuracy(vector_img, correlated_dims, order, tolerance):
 	if order == "C":
 		vector_img = np.ascontiguousarray(vector_img)
@@ -24,7 +24,11 @@ def test_compression_decompression_fixed_accuracy(vector_img, correlated_dims, o
 
 	print(f"compression ratio: {len(compressed)/vector_img.nbytes*100:.3f}%")
 
-	assert np.allclose(recovered, vector_img, atol=tolerance)
+	atol = tolerance
+	if tolerance == -1:
+		atol = 0
+
+	assert np.allclose(recovered, vector_img, atol=atol)
 
 @pytest.mark.parametrize("correlated_dims", [[True,True,True,True], [True,True,False,False], [False,True,True,True]])
 @pytest.mark.parametrize("order", ['C', 'F'])

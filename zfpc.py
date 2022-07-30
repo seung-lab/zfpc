@@ -298,23 +298,3 @@ def disassemble_container(header:ZfpcHeader, binary:bytes) -> List[bytes]:
 
   return streams
 
-# class ZfpcArray:
-#   def __init__(self, binary):
-#     self.header = ZfpcHeader.frombytes(binary)
-#     self.binary = binary
-
-#   def decompress(self) -> np.ndarray:
-#     return decompress(self.binary)
-
-#   def __getitem__(self, pt):
-#     pass
-
-#   def __setitem__(self, pt):
-#     pass
-
-
-
-
-
-
-

@@ -1,3 +1,5 @@
+[![Test Suite](https://github.com/seung-lab/zfpc/actions/workflows/test-suite.yml/badge.svg)](https://github.com/seung-lab/zfpc/actions/workflows/test-suite.yml)
+
 # zfpc: zfp container format
 
 _An unofficial project unaffiliated with the [`zfp`](https://github.com/LLNL/zfp/) project._

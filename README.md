@@ -1,6 +1,6 @@
 # zfpc: zfp container format
 
-_An unofficial project unaffiliated with the `zfp` project._
+_An unofficial project unaffiliated with the [`zfp`](https://github.com/LLNL/zfp/) project._
 
 An exerimental container format for `zfp` encoded vector fields. As described in the [zfp documentation](https://zfp.readthedocs.io/en/latest/faq.html#q-vfields), datasets such as vector fields are not optimally compressed within a single zfp stream. This is due to the uncorrelated X and Y components. Compress the X and Y components as separate `zfp` arrays and you will yield a higher compression ratio.
 

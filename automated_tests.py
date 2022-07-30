@@ -2,9 +2,13 @@ import numpy as np
 import zfpc
 import pytest
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def vector_img():
-	return np.load("vector_field_sample.npy")
+	try:
+		return np.load("vector_field_sample.npy")
+	except FileNotFoundError:
+		with open("vector_field_sample.npy.zfpc", "rb") as f:
+			return zfpc.decompress(f.read())
 
 @pytest.mark.parametrize("correlated_dims", [[True,True,True,True], [True,True,False,False], [False,True,True,True]])
 @pytest.mark.parametrize("order", ['C', 'F'])

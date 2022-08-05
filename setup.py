@@ -16,7 +16,7 @@ setuptools.setup(
   name="zfpc",
   version="0.1.2",
   setup_requires=['numpy'],
-  install_requires=requirements(),
+  install_requires=['numpy', 'zfpy'],
   python_requires=">=3.7,<4.0", # >= 3.7 < 4.0
   author="William Silversmith",
   author_email="ws9@princeton.edu",

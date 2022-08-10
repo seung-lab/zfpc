@@ -135,6 +135,9 @@ class ZfpcHeader:
         num_streams *= shape[i]
     return num_streams
 
+  def __repr__(self):
+    return f"ZfpcHeader({self.nx}, {self.ny}, {self.nz}, {self.nw}, {self.data_type}, {self.c_order}, {self.mode}, {self.correlated_dims})"
+
 def compute_slices(header):
   shape = [ header.nx, header.ny, header.nz, header.nw ]
   ndim = sum([ si > 0 for si in shape ])
@@ -298,3 +301,5 @@ def disassemble_container(header:ZfpcHeader, binary:bytes) -> List[bytes]:
 
   return streams
 
+def header(binary:bytes) -> ZfpcHeader:
+  return ZfpcHeader.frombytes(binary)

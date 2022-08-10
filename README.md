@@ -31,6 +31,8 @@ binary = zfpc.compress(
 	correlated_dims=correlated_dims,
 )
 recovered_img = zfpc.decompress(binary)
+
+header = zfpc.header(binary)
 ```
 
 ## Container Format
